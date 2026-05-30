@@ -135,7 +135,7 @@
       margin: 0 auto;
       min-height: calc(100vh - 72px);
       display: grid;
-      grid-template-columns: minmax(0, 1.03fr) minmax(320px, 0.97fr);
+      grid-template-columns: minmax(0, 760px);
       gap: 48px;
       align-items: center;
       padding: 48px 0 36px;
@@ -186,48 +186,6 @@
       flex-wrap: wrap;
       gap: 12px;
       margin-top: 30px;
-    }
-
-    .hero-card {
-      overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      box-shadow: var(--shadow);
-    }
-
-    .hero-card img {
-      display: block;
-      width: 100%;
-      aspect-ratio: 4 / 3;
-      object-fit: cover;
-    }
-
-    .hero-card-footer {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: var(--line);
-    }
-
-    .metric {
-      min-height: 92px;
-      padding: 18px;
-      background: var(--panel);
-    }
-
-    .metric strong {
-      display: block;
-      font-size: 26px;
-      line-height: 1;
-    }
-
-    .metric span {
-      display: block;
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
     }
 
     section {
@@ -447,10 +405,6 @@
         width: 100%;
       }
 
-      .hero-card-footer {
-        grid-template-columns: 1fr;
-      }
-
       .timeline-item {
         grid-template-columns: 1fr;
       }
@@ -472,7 +426,7 @@
       <div class="nav-links">
         <a href="#work">Work</a>
         <a href="#training">Training</a>
-        <a href="#results">Results</a>
+        <a href="#results">Learning Goals</a>
         <a class="nav-cta" href="schedule.html">Class Schedule</a>
       </div>
     </nav>
@@ -491,24 +445,6 @@
           <a class="button secondary" href="#work">See Information</a>
         </div>
       </div>
-
-      <aside class="hero-card" aria-label="AK64 Chess Hub profile">
-        <img src="https://images.unsplash.com/photo-1529699211952-734e80c4d42b?auto=format&fit=crop&w=1100&q=80" alt="Chess pieces on a wooden board">
-        <div class="hero-card-footer">
-          <div class="metric">
-            <strong>3</strong>
-            <span>day starter program</span>
-          </div>
-          <div class="metric">
-            <strong>6</strong>
-            <span>core piece skills</span>
-          </div>
-          <div class="metric">
-            <strong>4</strong>
-            <span>tactics taught</span>
-          </div>
-        </div>
-      </aside>
     </section>
 
     <section id="work" aria-labelledby="work-title">
@@ -553,19 +489,19 @@
           <p class="eyebrow">Training approach</p>
           <h2>Simple rules, serious thinking.</h2>
           <p>
-            Each lesson introduces one idea, reinforces it with board drills, then checks for understanding before moving on.
+            Each lesson will introduce one idea, reinforce it with board drills, then check for understanding before moving on.
           </p>
         </div>
         <div class="quote">
-          Students learn to slow down, look carefully, and explain what they see.
+          Students will learn to slow down, look carefully, and explain what they see.
         </div>
       </div>
     </div>
 
     <section id="results" aria-labelledby="results-title">
       <div class="section-head">
-        <h2 id="results-title">Results Focus</h2>
-        <p>Progress is measured through visible skills: setup, pattern recognition, and clear board thinking.</p>
+        <h2 id="results-title">Planned Learning Goals</h2>
+        <p>Upcoming classes will focus on visible skills: setup, pattern recognition, and clear board thinking.</p>
       </div>
 
       <div class="timeline">
@@ -573,21 +509,21 @@
           <time>Step 01</time>
           <div>
             <h3>Board control</h3>
-            <p>Students learn setup, legal moves, piece values, and safe-square awareness.</p>
+            <p>Students will learn setup, legal moves, piece values, and safe-square awareness.</p>
           </div>
         </article>
         <article class="timeline-item">
           <time>Step 02</time>
           <div>
             <h3>Threat detection</h3>
-            <p>Students identify checks, captures, attacks, and defended pieces before answering.</p>
+            <p>Students will identify checks, captures, attacks, and defended pieces before answering.</p>
           </div>
         </article>
         <article class="timeline-item">
           <time>Step 03</time>
           <div>
             <h3>Skill checkpoints</h3>
-            <p>Students review checkmates, opening ideas, promotion basics, and lesson goals.</p>
+            <p>Students will review checkmates, opening ideas, promotion basics, and lesson goals.</p>
           </div>
         </article>
       </div>
@@ -596,8 +532,8 @@
     <section class="contact" aria-labelledby="contact-title">
       <div class="contact-panel">
         <div>
-          <h2 id="contact-title">Ready for the next class?</h2>
-          <p>Open the schedule for class dates, times, and the protected lesson plan.</p>
+          <h2 id="contact-title">Planning for an upcoming class?</h2>
+          <p>Open the schedule for planned class dates, times, and the protected lesson plan.</p>
         </div>
         <a class="button" href="schedule.html">Open Schedule</a>
       </div>
@@ -605,7 +541,7 @@
   </main>
 
   <footer>
-    AK64 Chess Hub main site. Built for clear lessons, focused drills, and better chess habits.
+    AK64 Chess Hub information site. Planned for clear lessons, focused drills, and better chess habits.
   </footer>
 </body>
 </html>
