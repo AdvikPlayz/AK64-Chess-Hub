@@ -862,11 +862,13 @@
 
         <div class="admin-grid">
           <div class="admin-box">
-            <h4>Class Status</h4>
+            <h4>Class Schedule</h4>
             <div id="status-controls"></div>
             <div class="admin-actions">
-              <button type="button" onclick="saveClassStatuses()">Save Status</button>
-              <button type="button" onclick="resetClassStatuses()">Reset Status</button>
+              <button type="button" onclick="saveClassChanges()">Save Locally</button>
+              <button type="button" onclick="publishWebsiteData()">Publish Website Data</button>
+              <button type="button" onclick="loadRemoteScheduleData(true)">Refresh From Website</button>
+              <button type="button" onclick="resetClassStatuses()">Reset Local Changes</button>
             </div>
           </div>
 
