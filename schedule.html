@@ -837,7 +837,7 @@
       </div>
 
       <div class="schedule-loading-note" role="status" aria-live="polite">Loading schedule information...</div>
-      <div class="schedule-empty-note" role="status" aria-live="polite">No public class times are scheduled yet.</div>
+      <div class="schedule-empty-note" role="status" aria-live="polite">No public class dates are scheduled yet.</div>
 
       <div class="time-grid">
         <article class="time-card" data-title="Meet the Pieces" data-date="06/01/2026" data-time="" data-status="">
@@ -927,11 +927,11 @@
         <div class="admin-grid">
           <div class="admin-box">
             <h4>Class Schedule</h4>
-            <p class="sync-note">Use Save Locally to preview. Use Publish Website Data after the free sync URL is added to this file.</p>
+            <p class="sync-note">Use Preview Locally to test on this device. Use Publish to All Devices so phones and other computers can see the same schedule.</p>
             <div id="status-controls"></div>
             <div class="admin-actions">
-              <button type="button" onclick="saveClassChanges()">Save Locally</button>
-              <button type="button" onclick="publishWebsiteData()">Publish Website Data</button>
+              <button type="button" onclick="saveClassChanges()">Preview Locally</button>
+              <button type="button" onclick="publishWebsiteData()">Publish to All Devices</button>
               <button type="button" onclick="loadRemoteScheduleData(true)">Refresh From Website</button>
               <button type="button" onclick="resetClassStatuses()">Reset Local Changes</button>
             </div>
@@ -1148,7 +1148,7 @@
     const STATUS_KEY = "ak64ClassStatuses";
     const CLASS_KEY = "ak64ClassRows";
     const PLAN_KEY = "ak64PrivatePlanRows";
-    const REMOTE_SCHEDULE_API = "https://script.google.com/macros/s/AKfycbwWyD4iH7dt8ulpBOmJ7O99-wGFKJQuk-o3u8r_GNszwzoE-dT8qVPGSBMqITHnJcJz/exec";
+    const REMOTE_SCHEDULE_API = "https://script.google.com/macros/s/AKfycby7Nkp3ZrGcm2R9J0R8xdEA55jFCFqOy7XacwaXuppSpcQcKXS-gH3Tv3USw-C--tdZ/exec";
     let scheduleInitialized = false;
 
     function parseScheduleDate(dateText, timeText) {
@@ -1201,7 +1201,7 @@
 
           return { card, date, time, manualStatus, dateTime, endTime };
         })
-        .filter((item) => item.dateTime && item.time && item.manualStatus !== "archived");
+        .filter((item) => item.dateTime && item.manualStatus !== "archived");
       const upcoming = scheduled
         .filter((item) => !item.time || item.endTime >= now)
         .sort((a, b) => a.dateTime - b.dateTime);
@@ -1271,10 +1271,9 @@
       updatePublicScheduleVisibility();
     }
 
-    function hasPublicScheduleTime(card) {
+    function hasPublicScheduleDate(card) {
       const date = card.dataset.date || "";
-      const time = card.dataset.time || "";
-      return Boolean(date && time && parseScheduleDate(date, time));
+      return Boolean(date && parseScheduleDate(date, card.dataset.time || ""));
     }
 
     function updatePublicScheduleVisibility() {
@@ -1282,7 +1281,7 @@
       let publicCount = 0;
 
       cards.forEach((card) => {
-        const shouldShowPublicly = hasPublicScheduleTime(card);
+        const shouldShowPublicly = hasPublicScheduleDate(card);
         card.classList.toggle("is-public-hidden", !shouldShowPublicly);
 
         if (shouldShowPublicly) {
@@ -1550,10 +1549,9 @@
 
     function applyClassRows(rows) {
       rows.forEach((row) => {
-        const card = Array.from(document.querySelectorAll(".time-card")).find((item) => item.dataset.title === row.title);
-        if (!card) {
-          return;
-        }
+        const title = row.title || row.day_title || "Untitled Class";
+        const card = Array.from(document.querySelectorAll(".time-card")).find((item) => item.dataset.title === title)
+          || createClassCard(title);
 
         card.dataset.date = row.date && row.date !== EMPTY_DATE ? row.date : "";
         card.dataset.time = row.time && row.time !== EMPTY_TIME ? row.time : "";
@@ -1561,6 +1559,33 @@
         card.querySelector(".time-body p").textContent = row.description || card.querySelector(".time-body p").textContent;
       });
       updateScheduleStatus();
+    }
+
+    function createClassCard(title) {
+      const grid = document.querySelector(".time-grid");
+      const card = document.createElement("article");
+      card.className = "time-card";
+      card.dataset.title = title;
+      card.dataset.date = "";
+      card.dataset.time = "";
+      card.dataset.status = "";
+      card.innerHTML = `
+        <div class="date-band">
+          <div class="date-row">
+            <div>
+              <strong class="class-date">${EMPTY_DATE}</strong>
+              <span class="date-time">${EMPTY_TIME}</span>
+            </div>
+            <span class="status-tag">Pending</span>
+          </div>
+        </div>
+        <div class="time-body">
+          <h3>${escapeHTML(title)}</h3>
+          <p>Lesson details will be added once they are confirmed.</p>
+        </div>
+      `;
+      grid.appendChild(card);
+      return card;
     }
 
     function loadStoredClassRows() {
@@ -1637,7 +1662,7 @@
       localStorage.setItem(STATUS_KEY, JSON.stringify(statuses));
       localStorage.setItem(CLASS_KEY, JSON.stringify(getClassScheduleRows()));
       updateScheduleStatus();
-      setAdminNote("Saved class changes on this device. Use Publish Website Data to update other devices.");
+      setAdminNote("Preview saved on this device only. Use Publish to All Devices so phones can see it.");
     }
 
     function saveClassStatuses() {
@@ -1787,7 +1812,13 @@
           },
           body: JSON.stringify(payload)
         });
-        setAdminNote("Published website data. Refresh another device to see the shared schedule.");
+        setAdminNote("Publish sent. Verifying shared website data...");
+        window.setTimeout(async () => {
+          const verified = await loadRemoteScheduleData(false);
+          setAdminNote(verified
+            ? "Published and verified. Phones and other devices will see this shared schedule after refresh."
+            : "Publish was sent, but the shared website data could not be verified. Check the Google Apps Script deployment and publish key.");
+        }, 1200);
       } catch (error) {
         setAdminNote(`Publish failed: ${error.message}`);
       }
