@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>AK64 Chess Hub | Schedule</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -370,6 +373,26 @@
 
     .schedule-empty .schedule-empty-note {
       display: block;
+    }
+
+    .schedule-error-note {
+      display: none;
+      padding: 22px;
+      border: 1px solid rgba(49, 87, 183, 0.22);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--muted);
+      font-weight: 800;
+      box-shadow: 0 10px 28px rgba(8, 43, 90, 0.08);
+    }
+
+    .schedule-error .schedule-error-note {
+      display: block;
+    }
+
+    .schedule-error .schedule-empty-note,
+    .schedule-error .time-grid {
+      display: none;
     }
 
     body:not(.admin-unlocked) .time-card.is-public-hidden {
@@ -838,7 +861,8 @@
       </div>
 
       <div class="schedule-loading-note" role="status" aria-live="polite">Loading schedule information...</div>
-      <div class="schedule-empty-note" role="status" aria-live="polite">There could be no classes left, or your device may be unsupported. Please contact someone who can help fix your problem.</div>
+      <div class="schedule-error-note" role="status" aria-live="polite">The shared schedule could not load. Refresh the page or try again soon.</div>
+      <div class="schedule-empty-note" role="status" aria-live="polite">No public class dates are scheduled yet.</div>
 
       <div class="time-grid"></div>
     </section>
@@ -1100,8 +1124,14 @@
     const STATUS_KEY = "ak64ClassStatuses";
     const CLASS_KEY = "ak64ClassRows";
     const PLAN_KEY = "ak64PrivatePlanRows";
-    const REMOTE_SCHEDULE_API = "https://script.google.com/macros/s/AKfycbx91hbSc5V2Hgq3LMN3gEDyooISlg1XI807R_4TC5LRUD3qSHjSlenwpvvQ0zLiISjG/exec";
+    const REMOTE_SCHEDULE_API = "https://script.google.com/macros/s/AKfycbznxpyqTaypU2FRvkHkNGYL_vhwCeYKLzjjVR9mRw65doBKIP_ANbKEBh3Rt6scAg4c/exec";
+    const BASE_CLASS_TITLES = [
+      "Meet the Pieces",
+      "Rules and Chess Principles",
+      "Beginner Tactics and Chess Thinking"
+    ];
     let scheduleInitialized = false;
+    let lastLoadedRemoteState = null;
 
     function parseScheduleDate(dateText, timeText) {
       const dateMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateText || "");
@@ -1242,6 +1272,18 @@
       });
 
       document.body.classList.toggle("schedule-empty", scheduleInitialized && publicCount === 0);
+    }
+
+    function clearPublicClassCards() {
+      if (document.body.classList.contains("admin-unlocked")) {
+        return;
+      }
+
+      document.querySelector(".time-grid").innerHTML = "";
+      document.getElementById("classes-left").textContent = "0";
+      document.getElementById("next-date").textContent = EMPTY_DATE;
+      document.getElementById("next-time").textContent = EMPTY_TIME;
+      document.body.classList.toggle("schedule-empty", scheduleInitialized);
     }
 
     function getPlanRowsFromDOM() {
@@ -1423,7 +1465,7 @@
     }
 
     function resetPrivatePlan() {
-      localStorage.removeItem(PLAN_KEY);
+      removeStorage("local", PLAN_KEY);
       window.location.reload();
     }
 
@@ -1434,17 +1476,55 @@
       }
     }
 
-    function loadStoredPrivatePlan() {
-      const storedRows = localStorage.getItem(PLAN_KEY);
-      if (!storedRows) {
-        return;
+    function getBrowserStorage(kind) {
+      try {
+        return kind === "session" ? window.sessionStorage : window.localStorage;
+      } catch {
+        return null;
+      }
+    }
+
+    function readStorage(kind, key) {
+      try {
+        const storage = getBrowserStorage(kind);
+        if (!storage) {
+          return null;
+        }
+
+        return storage.getItem(key);
+      } catch {
+        return null;
+      }
+    }
+
+    function writeStorage(kind, key, value) {
+      try {
+        const storage = getBrowserStorage(kind);
+        if (!storage) {
+          return false;
+        }
+
+        storage.setItem(key, value);
+      } catch {
+        return false;
       }
 
+      return true;
+    }
+
+    function removeStorage(kind, key) {
       try {
-        renderPrivatePlan(JSON.parse(storedRows));
+        const storage = getBrowserStorage(kind);
+        if (!storage) {
+          return false;
+        }
+
+        storage.removeItem(key);
       } catch {
-        localStorage.removeItem(PLAN_KEY);
+        return false;
       }
+
+      return true;
     }
 
     function setupCSVUpload() {
@@ -1476,7 +1556,6 @@
 
       if (classRows.length) {
         applyClassRows(classRows);
-        localStorage.setItem(CLASS_KEY, JSON.stringify(getClassScheduleRows()));
         changed.push("class cards");
       }
 
@@ -1485,7 +1564,6 @@
         const importedDays = new Set(lessonRows.map((row) => row.day).filter(Boolean));
         const keptRows = currentRows.filter((row) => !importedDays.has(row.day));
         const nextRows = [...keptRows, ...lessonRows].sort((a, b) => Number(a.day) - Number(b.day));
-        localStorage.setItem(PLAN_KEY, JSON.stringify(nextRows));
         renderPrivatePlan(nextRows);
         changed.push(importedDays.size === 1 ? `Lesson ${Array.from(importedDays)[0]}` : "lesson plan");
       }
@@ -1499,7 +1577,21 @@
       return `Uploaded and applied ${changed.join(" and ")}.`;
     }
 
-    function applyClassRows(rows) {
+    function applyClassRows(rows, options = {}) {
+      const incomingTitles = new Set(rows.map((row) => row.title || row.day_title || "Untitled Class"));
+
+      if (options.replace) {
+        document.querySelectorAll(".time-card").forEach((card) => {
+          if (!incomingTitles.has(card.dataset.title)) {
+            if (BASE_CLASS_TITLES.includes(card.dataset.title)) {
+              resetClassCard(card);
+            } else {
+              card.remove();
+            }
+          }
+        });
+      }
+
       rows.forEach((row) => {
         const title = row.title || row.day_title || "Untitled Class";
         const card = Array.from(document.querySelectorAll(".time-card")).find((item) => item.dataset.title === title)
@@ -1511,6 +1603,15 @@
         card.querySelector(".time-body p").textContent = row.description || card.querySelector(".time-body p").textContent;
       });
       updateScheduleStatus();
+    }
+
+    function resetClassCard(card) {
+      card.dataset.date = "";
+      card.dataset.time = "";
+      card.dataset.status = "";
+      card.querySelector(".class-date").textContent = EMPTY_DATE;
+      card.querySelector(".date-time").textContent = EMPTY_TIME;
+      card.querySelector(".status-tag").textContent = "Pending";
     }
 
     function createClassCard(title) {
@@ -1538,33 +1639,6 @@
       `;
       grid.appendChild(card);
       return card;
-    }
-
-    function loadStoredClassRows() {
-      const storedRows = localStorage.getItem(CLASS_KEY);
-      if (!storedRows) {
-        return;
-      }
-
-      try {
-        applyClassRows(JSON.parse(storedRows));
-      } catch {
-        localStorage.removeItem(CLASS_KEY);
-      }
-    }
-
-    function loadClassStatuses() {
-      try {
-        const statuses = JSON.parse(localStorage.getItem(STATUS_KEY) || "{}");
-        document.querySelectorAll(".time-card").forEach((card) => {
-          const title = card.dataset.title;
-          if (Object.prototype.hasOwnProperty.call(statuses, title)) {
-            card.dataset.status = statuses[title];
-          }
-        });
-      } catch {
-        localStorage.removeItem(STATUS_KEY);
-      }
     }
 
     function cleanPlaceholder(value, placeholder) {
@@ -1611,8 +1685,6 @@
           statuses[card.dataset.title] = card.dataset.status || "";
         }
       });
-      localStorage.setItem(STATUS_KEY, JSON.stringify(statuses));
-      localStorage.setItem(CLASS_KEY, JSON.stringify(getClassScheduleRows()));
       updateScheduleStatus();
       setAdminNote("Preview saved on this device only. Use Publish to All Devices so phones can see it.");
     }
@@ -1622,8 +1694,8 @@
     }
 
     function resetClassStatuses() {
-      localStorage.removeItem(STATUS_KEY);
-      localStorage.removeItem(CLASS_KEY);
+      removeStorage("local", STATUS_KEY);
+      removeStorage("local", CLASS_KEY);
       window.location.reload();
     }
 
@@ -1632,24 +1704,23 @@
       return {
         version: 1,
         updatedAt: new Date().toISOString(),
+        clientPublishId: "",
         classRows: getClassScheduleRows(),
         lessonRows: getPlanRowsFromDOM()
       };
     }
 
     function applyScheduleState(state) {
-      if (!state) {
+      if (!state || (!Array.isArray(state.classRows) && !Array.isArray(state.lessonRows))) {
         return false;
       }
 
       if (Array.isArray(state.classRows)) {
-        applyClassRows(state.classRows);
-        localStorage.setItem(CLASS_KEY, JSON.stringify(getClassScheduleRows()));
+        applyClassRows(state.classRows, { replace: true });
       }
 
       if (Array.isArray(state.lessonRows)) {
         renderPrivatePlan(state.lessonRows);
-        localStorage.setItem(PLAN_KEY, JSON.stringify(state.lessonRows));
       }
 
       renderStatusControls();
@@ -1662,7 +1733,7 @@
     }
 
     function getPublishKey() {
-      let publishKey = sessionStorage.getItem("ak64PublishKey") || "";
+      let publishKey = readStorage("session", "ak64PublishKey") || "";
 
       if (!publishKey) {
         publishKey = window.prompt("Enter your private publish key for the shared schedule:") || "";
@@ -1671,7 +1742,7 @@
       publishKey = publishKey.trim();
 
       if (publishKey) {
-        sessionStorage.setItem("ak64PublishKey", publishKey);
+        writeStorage("session", "ak64PublishKey", publishKey);
       }
 
       return publishKey;
@@ -1714,6 +1785,8 @@
         if (showNote) {
           setAdminNote("Shared sync is not configured yet. Add the Google Apps Script web app URL to REMOTE_SCHEDULE_API.");
         }
+        clearPublicClassCards();
+        document.body.classList.add("schedule-error");
         return false;
       }
 
@@ -1723,15 +1796,19 @@
           throw new Error(result?.error || "No shared schedule data was returned.");
         }
 
-        const applied = applyScheduleState(result.state || result);
+        lastLoadedRemoteState = result.state || result;
+        const applied = applyScheduleState(lastLoadedRemoteState);
         if (showNote) {
           setAdminNote(applied ? "Loaded the shared schedule from the website data." : "No shared schedule has been published yet.");
         }
+        document.body.classList.toggle("schedule-error", !applied);
         return applied;
       } catch (error) {
         if (showNote) {
           setAdminNote(`Could not load shared schedule data: ${error.message}`);
         }
+        clearPublicClassCards();
+        document.body.classList.add("schedule-error");
         return false;
       }
     }
@@ -1749,10 +1826,14 @@
         return;
       }
 
+      const publishId = `ak64-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      const state = getScheduleState();
+      state.clientPublishId = publishId;
+
       const payload = {
         publishKey,
         password: PASSWORD,
-        state: getScheduleState()
+        state
       };
 
       try {
@@ -1767,9 +1848,10 @@
         setAdminNote("Publish sent. Verifying shared website data...");
         window.setTimeout(async () => {
           const verified = await loadRemoteScheduleData(false);
-          setAdminNote(verified
+          const exactPublishVerified = verified && lastLoadedRemoteState?.clientPublishId === publishId;
+          setAdminNote(exactPublishVerified
             ? "Published and verified. Phones and other devices will see this shared schedule after refresh."
-            : "Publish was sent, but the shared website data could not be verified. Check the Google Apps Script deployment and publish key.");
+            : "Publish was sent, but this exact update could not be verified. Check the Google Apps Script deployment, access setting, and publish key.");
         }, 1200);
       } catch (error) {
         setAdminNote(`Publish failed: ${error.message}`);
@@ -1807,17 +1889,12 @@
     async function initializeSchedulePage() {
       const loadedRemote = await loadRemoteScheduleData(false);
 
-      if (!loadedRemote) {
-        loadStoredClassRows();
-        loadStoredPrivatePlan();
-        loadClassStatuses();
-      }
-
       renderStatusControls();
       setupCSVUpload();
       scheduleInitialized = true;
       updateScheduleStatus();
       document.body.classList.remove("schedule-loading");
+      document.body.classList.toggle("schedule-error", !loadedRemote);
     }
 
     initializeSchedulePage();
